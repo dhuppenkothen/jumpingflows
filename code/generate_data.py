@@ -1,3 +1,5 @@
+import numpy as np
+
 def twoexp(time, t0, amp, rise, skew):
     """
     Calculate a double-sided exponential at 
