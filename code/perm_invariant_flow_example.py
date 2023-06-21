@@ -50,6 +50,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as td
 
+
 class Flow(nn.Module):
     """
     Building both normalizing flows and neural flows.
@@ -67,6 +68,7 @@ class Flow(nn.Module):
         base_dist (Type[torch.distributions]): Base distribution
         transforms (List[st.flows]): List of invertible transformations
     """
+
     def __init__(self, base_dist=None, transforms=[]):
         super().__init__()
         self.base_dist = base_dist
@@ -93,14 +95,18 @@ class Flow(nn.Module):
         log_jac_diag = torch.zeros_like(x).to(x)
         for f in transforms:
             if reverse:
-                x, ld = f.inverse_and_log_det_jacobian(x * _mask, latent=latent, mask=mask, t=t, **kwargs)
+                x, ld = f.inverse_and_log_det_jacobian(
+                    x * _mask, latent=latent, mask=mask, t=t, **kwargs
+                )
             else:
-                x, ld = f.forward_and_log_det_jacobian(x * _mask, latent=latent, mask=mask, t=t, **kwargs)
+                x, ld = f.forward_and_log_det_jacobian(
+                    x * _mask, latent=latent, mask=mask, t=t, **kwargs
+                )
             log_jac_diag += ld * _mask
         return x, log_jac_diag
 
     def inverse(self, y, latent=None, mask=None, t=None, **kwargs):
-        """ Inverse of forward function with the same arguments. """
+        """Inverse of forward function with the same arguments."""
         return self.forward(y, latent=latent, mask=mask, t=t, reverse=True, **kwargs)
 
     def log_prob(self, x, **kwargs):
@@ -114,7 +120,7 @@ class Flow(nn.Module):
             log_prob (tensor): Log-probability of the input with shape (..., 1)
         """
         if self.base_dist is None:
-            raise ValueError('Please define `base_dist` if you need log-probability')
+            raise ValueError("Please define `base_dist` if you need log-probability")
         x, log_jac_diag = self.inverse(x, **kwargs)
 
         log_prob = self.base_dist.log_prob(x) + log_jac_diag.sum(-1)
@@ -132,9 +138,9 @@ class Flow(nn.Module):
         Returns:
             x (tensor): Samples from target distribution with shape (*num_samples, dim)
         """
-                
+
         if self.base_dist is None:
-            raise ValueError('Please define `base_dist` if you need sampling')
+            raise ValueError("Please define `base_dist` if you need sampling")
         if isinstance(num_samples, int):
             num_samples = (num_samples,)
 
@@ -143,56 +149,79 @@ class Flow(nn.Module):
         return x
 
 
-def get_exact_model(dim, hidden_dims, latent_dim, context_dim=0, n_transforms=4, n_heads=2, model="deepset", set_data=False, device='cpu', atol=1e-4, base_dist_mean=None, base_dist_cov=None):
-    
+def get_exact_model(
+    dim,
+    hidden_dims,
+    latent_dim,
+    context_dim=0,
+    n_transforms=4,
+    n_heads=2,
+    model="deepset",
+    set_data=False,
+    device="cpu",
+    atol=1e-4,
+    base_dist_mean=None,
+    base_dist_cov=None,
+):
     has_latent = True if context_dim > 0 else False
-    
+
     transforms = []
-    
+
     for _ in range(n_transforms):
-        
         if model == "deepset":
-            net=st.net.DiffeqExactTraceDeepSet(dim, hidden_dims, dim, d_h=latent_dim, latent_dim=context_dim)
+            net = st.net.DiffeqExactTraceDeepSet(
+                dim, hidden_dims, dim, d_h=latent_dim, latent_dim=context_dim
+            )
         elif model == "settransformer":
-            net=st.net.DiffeqExactTraceAttention(dim, hidden_dims, dim, d_h=latent_dim, n_heads=n_heads, latent_dim=context_dim)
+            net = st.net.DiffeqExactTraceAttention(
+                dim,
+                hidden_dims,
+                dim,
+                d_h=latent_dim,
+                n_heads=n_heads,
+                latent_dim=context_dim,
+            )
         else:
             raise NotImplementedError
-            
+
         transforms.append(
             st.flows.ContinuousTransform(
-                dim, 
-                net=net, 
-                divergence='exact', 
-                solver='dopri5', 
-                atol=atol, 
-                has_latent=has_latent, 
-                set_data=set_data
+                dim,
+                net=net,
+                divergence="exact",
+                solver="dopri5",
+                atol=atol,
+                has_latent=has_latent,
+                set_data=set_data,
             )
         )
-        
+
     if base_dist_mean is None:
         base_dist_mean = torch.zeros(dim)
-        
+
     if base_dist_cov is None:
         base_dist_cov = torch.ones(dim)
 
-    model = Flow(st.Normal(base_dist_mean.to(device), base_dist_cov.to(device)), transforms).to(device)
-    
+    model = Flow(
+        st.Normal(base_dist_mean.to(device), base_dist_cov.to(device)), transforms
+    ).to(device)
+
     return model
 
+
 network = get_exact_model(
-    dim=3, 
-    hidden_dims=[64, 64], 
-    latent_dim=8, 
-    context_dim=0, 
-    n_transforms=2, 
-    n_heads=2, 
-    model="deepset", 
-    set_data=True, 
+    dim=3,
+    hidden_dims=[64, 64],
+    latent_dim=8,
+    context_dim=0,
+    n_transforms=2,
+    n_heads=2,
+    model="deepset",
+    set_data=True,
     # base_dist_mean=x_mean,
-    # base_dist_cov=x_cov, 
-    # device=device, 
-    atol=1e-4
+    # base_dist_cov=x_cov,
+    # device=device,
+    atol=1e-4,
 )
 
 x = torch.randn(10, 10, 3)
