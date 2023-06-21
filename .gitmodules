@@ -1,0 +1,3 @@
+[submodule "remote/zuko"]
+	path = remote/zuko
+	url = git@github.com:bkmi/zuko.git
