@@ -1,0 +1,6 @@
+[submodule "remote/zuko"]
+	path = remote/zuko
+	url = git@github.com:bkmi/zuko.git
+[submodule "remote/stribor"]
+	path = remote/stribor
+	url = git@github.com:bkmi/stribor.git
